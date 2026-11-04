@@ -1,0 +1,6 @@
+# terraform.tfvars.example: 배포 루트의 리전과 AMI 입력 방법을 보여주는 더미 값입니다.
+# 실제 계획을 확인하려면 terraform.tfvars로 복사하고 유효한 AMI로 변경합니다.
+
+# 문법 설명용 더미 값입니다. 선택한 리전의 실제 Linux AMI로 교체하세요.
+aws_region = "ap-northeast-2"
+ami_id     = "ami-0123456789abcdef0"

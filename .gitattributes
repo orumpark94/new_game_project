@@ -1,0 +1,8 @@
+* text=auto
+*.tf text eol=lf
+*.hcl text eol=lf
+*.sh text eol=lf
+*.tftpl text eol=lf
+*.md text eol=lf
+*.ps1 text eol=crlf
+*.tpl text eol=lf

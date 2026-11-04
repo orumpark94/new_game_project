@@ -1,0 +1,31 @@
+# 로컬 캐시 및 실행 결과
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+backend.hcl
+.env
+.env.*
+*.pem
+*.ppk
+*.key
+*.pfx
+*.p12
+*.local.*
+terraform-test-state*
+# .terraform.lock.hcl 및 *.tfvars.example은 커밋합니다.
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
