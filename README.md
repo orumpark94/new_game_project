@@ -1,8 +1,10 @@
 # Terraform 기반 해외 게임 서비스 AWS 인프라 표준화
 
-Console에서 서버를 개별 생성하던 작업을 **리소스 모듈 + 서버 인벤토리(inventory)** 방식으로 전환한 실무 프로젝트의 포트폴리오입니다.
+다수의 **Windows·Linux EC2 서버를 일관된 기준으로 생성하고, OS 부팅 시 초기 설정까지 자동화**하기 위한 실무 프로젝트입니다. AWS Console에서 서버마다 네트워크·보안 규칙·디스크를 설정하고 OS 초기 설정을 반복하던 작업을 Terraform 코드와 초기화 스크립트로 관리하도록 구성했습니다.
 
-실제 프로젝트는 3개 AWS 계정에 약 100대 규모의 서버를 구축했습니다. 이 저장소는 그중 핵심 설계를 설명하기 위해 **4개 모듈과 더미 서버 한 대를 연결하는 `new_game_project` 배포 루트**로 재구성했습니다. 원본의 `main.tf`·`server.tf`·`sg.tf`·`alb.tf` 파일 구성을 따릅니다. 서버명·주소·AMI·클라이언트 대역은 모두 예시 데이터입니다.
+핵심은 **반복되는 생성 절차는 모듈로 묶고, 서버별 차이는 인벤토리(inventory)로 관리**하는 것입니다. OS·서버 역할별 공통 정책은 적용할 서버를 지정해 재사용하고, 서버 전용 설정과 부팅 시 실행할 스크립트를 조합하는 방식으로 설계했습니다.
+
+실제 프로젝트는 3개 AWS 계정에 약 100대 규모의 서버를 구축했습니다. 이 저장소는 그중 핵심 설계를 설명하기 위해 **4개 모듈과 더미 서버 구성을 연결하는 `new_game_project` 배포 루트**로 재구성했습니다. 원본의 `main.tf`·`server.tf`·`sg.tf`·`alb.tf` 파일 구성을 따르며, 초기화 스크립트는 비밀값 없는 Linux 예시만 제공합니다. 서버명·주소·AMI·클라이언트 대역은 모두 예시 데이터입니다.
 
 ## 문제와 개선
 
@@ -15,14 +17,23 @@ Console에서 서버를 개별 생성하던 작업을 **리소스 모듈 + 서�
 
 **원본 프로젝트 성과:** 약 100대 서버 배포, 서버 구축 작업 시간 **약 30시간 → 2시간**. 해당 수치는 실무 프로젝트의 운영 실적이며, 이 공개용 예제로 측정한 결과는 아닙니다.
 
-## 먼저 볼 코드
+## 구성 요약
 
-| 확인할 내용 | 모듈 | 배포 루트의 호출부 |
-|---|---|---|
-| 이름 기반 서브넷 관리와 단일 라우팅 테이블 | [vpc](modules/vpc/main.tf) | [main.tf](new_game_project/main.tf) |
-| CIDR/SG 참조 규칙 및 규칙명 기반 생성 | [security-group](modules/security-group/main.tf) | [sg.tf](new_game_project/sg.tf) |
-| 서버 전용 SG·추가 EBS·선택적 EIP 표준화 | [ec2](modules/ec2/main.tf) | [server.tf](new_game_project/server.tf) |
-| 리스너·서버·포트 조합과 SG 연결 자동화 | [alb](modules/alb/main.tf) | [alb.tf](new_game_project/alb.tf) |
+서버를 추가할 때마다 리소스 생성 코드를 복사하는 대신, 서버의 사양과 역할을 정의하면 공통 모듈이 필요한 리소스를 생성하도록 구성했습니다. 자동화 범위는 EC2 생성뿐 아니라 네트워크·보안·스토리지·OS 초기 설정·로드 밸런서 연결까지 포함합니다.
+
+| 구성 | 적용 방식과 목적 |
+|---|---|
+| 리소스 모듈화 | VPC·보안 그룹(SG)·EC2·ALB의 생성 절차를 모듈로 분리해 반복 코드와 설정 누락을 줄임 |
+| 서버 인벤토리 기반 생성 | 서버명별 이미지·사양·서브넷·IP·디스크 설정을 정의하고 `for_each`로 EC2 모듈을 반복 호출 |
+| 공통 정책과 서버 전용 설정 조합 | OS·역할별 공통 SG와 서버 전용 SG를 분리해 공통 규칙을 재사용하고 서버별 통신 요구를 반영 |
+| 부팅 시 OS 초기 설정 | `user_data`에 초기화 스크립트를 전달해 첫 부팅 시 설정 수행. 공개 예제는 Linux 호스트명 설정과 HTTP 데모 서비스 등록을 포함 |
+| 스토리지·공인 IP 구성 자동화 | 서버 설정에 따라 추가 EBS 생성·연결과 선택적 EIP 할당을 수행하고, 루트·추가 볼륨 암호화를 공통 적용 |
+| ALB 연결 자동화 | 리스너·대상 서버·포트 정의를 바탕으로 대상 그룹과 대상 등록, ALB와 서버 사이의 SG 허용 규칙을 함께 생성 |
+| 계정별 배포 범위 분리 | 원본에서는 계정별 배포 루트·인증 설정·원격 상태를 분리해 각 계정의 인프라를 독립적으로 관리 |
+
+공통 정책의 **적용 대상 서버 목록**과 ALB의 **대상 그룹(target group)**은 별개입니다. 전자는 공통 설정을 적용할 서버를 고르는 기준이고, 후자는 ALB가 요청을 전달할 대상을 묶는 AWS 리소스입니다.
+
+현재 공개 예제의 공통 SG는 EC2 모듈 호출부에서 직접 지정합니다. `sg.tf`의 `target_server` 목록을 기준으로 서버별 SG를 선택해 부착하는 로직은 연결되어 있지 않으며, Windows 초기화 스크립트와 계정별 원격 상태도 공개 예제에는 포함하지 않았습니다. 추가 EBS는 생성·연결까지 수행하고 OS 내부 포맷·마운트는 별도 작업입니다.
 
 ## 전체 설계
 
@@ -56,12 +67,12 @@ flowchart TB
 
 ### 모듈별 책임
 
-| 모듈 | 담당 | 호출부가 결정하는 값 |
+| 모듈 | 담당 | 호출부와 주요 입력 |
 |---|---|---|
-| vpc | VPC, 서브넷, IGW, 단일 라우팅 테이블 | CIDR, 서브넷 이름, AZ |
-| security-group | SG 본체, 독립된 인바운드/아웃바운드 규칙 | 규칙명, 포트, CIDR 또는 SG 참조 |
-| ec2 | 인스턴스, 서버 전용 SG, 암호화 EBS, 선택적 EIP | 서버 사양, 이미지, 네트워크, 공통 SG, 초기화 스크립트 |
-| alb | ALB, 리스너, 대상 그룹, 대상 등록, 백엔드 SG 연결 | 접근 대역, 대상 서버, 리스너·대상 포트 |
+| [vpc](modules/vpc/main.tf) | VPC, 서브넷, IGW, 단일 라우팅 테이블 | [main.tf](new_game_project/main.tf): CIDR, 서브넷 이름, AZ |
+| [security-group](modules/security-group/main.tf) | SG 본체, 독립된 인바운드/아웃바운드 규칙 | [sg.tf](new_game_project/sg.tf): 규칙명, 포트, CIDR 또는 SG 참조 |
+| [ec2](modules/ec2/main.tf) | 인스턴스, 서버 전용 SG, 암호화 EBS, 선택적 EIP | [server.tf](new_game_project/server.tf)의 서버 설정을 [main.tf](new_game_project/main.tf)에서 모듈 입력으로 전달 |
+| [alb](modules/alb/main.tf) | ALB, 리스너, 대상 그룹, 대상 등록, 백엔드 SG 연결 | [alb.tf](new_game_project/alb.tf): 접근 대역, 대상 서버, 리스너·대상 포트 |
 
 모듈 내부에는 AWS 인증이나 리전을 고정하지 않습니다. Provider는 `new_game_project/versions.tf`에서 설정하고 하위 모듈이 상속합니다.
 
@@ -150,30 +161,6 @@ VPC 모듈은 원본과 같이 단일 라우팅 테이블과 IGW를 사용합니
 ```
 
 `new_game_project/`가 하나의 배포 루트입니다. 이 디렉터리의 Terraform 파일은 함께 하나의 구성으로 로드됩니다. `server.tf`와 `alb.tf`에 정의한 인벤토리를 `main.tf`와 `alb.tf`의 모듈 호출부가 사용합니다. 저장소 최상위와 `modules/`는 직접 배포하지 않습니다.
-
-## 로컬 검토 및 검증
-
-- Terraform `>= 1.10, < 2.0`, AWS Provider `~> 6.0`을 사용합니다.
-- 배포 루트인 `new_game_project`에서 초기화합니다. 최초 초기화에는 Provider 다운로드를 위한 네트워크 접근이 필요합니다.
-
-```powershell
-terraform -chdir=new_game_project init -backend=false
-terraform -chdir=new_game_project validate
-```
-
-### 실제 계정에서 계획을 확인할 경우
-
-`new_game_project`에서 `terraform.tfvars.example`을 `terraform.tfvars`로 복사하고, 리전에 존재하는 실제 x86_64 Linux AMI ID로 교체합니다. AWS 인증은 로컬 프로파일 또는 역할 등 외부 설정으로 제공합니다. 예를 들어 PowerShell에서는 `$env:AWS_PROFILE = "your-sandbox-profile"`로 사용할 프로파일을 선택할 수 있습니다.
-
-```powershell
-Copy-Item new_game_project/terraform.tfvars.example new_game_project/terraform.tfvars
-# terraform.tfvars의 AMI ID를 수정한 뒤 실행합니다.
-terraform -chdir=new_game_project plan
-```
-
-예제의 AMI ID는 형식만 맞춘 더미 값이므로 그대로 실제 `plan/apply`에 사용할 수 없습니다. ALB 구성은 `python3`와 `systemd`가 설치된 AMI를 전제로 하며 HTTP 데모만 구성합니다. 실제 클라이언트 접근에는 예제의 문서용 `client_cidrs`를 본인 출발지 CIDR로 바꿔야 합니다.
-
-`apply`를 실행하면 EC2·EBS·ALB·선택적 EIP 등의 비용이 발생합니다. 예제는 로컬 상태를 사용하므로 `new_game_project`의 상태 파일을 보관하고, 같은 디렉터리에서 `terraform destroy`로 정리해야 합니다. 루트 볼륨은 인스턴스 삭제 시 삭제되며, 예제의 추가 볼륨도 `destroy` 대상입니다.
 
 ## 공개 범위
 
