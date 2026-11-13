@@ -4,7 +4,7 @@
 
 locals {
   albs = {
-    demo_web = {      #더미 ALB 생성
+    demo_web = { # 더미 ALB 생성
       name           = "new-game-web-alb"
       subnet_keys    = ["app_a", "app_c"]
       internal       = false
@@ -17,6 +17,15 @@ locals {
           target_ports      = [8080]
           health_check_path = "/"
         }
+      }
+    }
+  }
+
+  alb_targets = {
+    for alb_key, alb in local.albs : alb_key => {
+      for name in alb.target_servers : name => {
+        instance_id       = module.EC2[name].instance_id
+        security_group_id = module.EC2[name].security_group_id
       }
     }
   }
@@ -33,12 +42,7 @@ module "ALB" {
   client_cidrs = each.value.client_cidrs
   listeners    = each.value.listeners
 
-  targets = {
-    for name in each.value.target_servers : name => {
-      instance_id       = module.EC2[name].instance_id
-      security_group_id = module.EC2[name].security_group_id
-    }
-  }
+  targets = local.alb_targets[each.key]
 
   # IGW와 라우팅 구성이 끝난 뒤 인터넷용 ALB를 생성합니다.
   depends_on = [module.vpc]

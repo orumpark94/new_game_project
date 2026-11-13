@@ -5,38 +5,30 @@
 locals {
   servers = {
     demo-app-01 = {
-      image            = "linux"
-      subnet           = "app_a"
-      private_ip       = "10.42.10.10"
-      instance_type    = "t3.micro"
-      root_volume_size = 30
-      data_volumes     = { "/dev/sdf" = { size = 10 } }
-      allocate_eip     = false
-      ingress_rules    = {
-        Gateway_server = { from_port = 3389, to_port = 3389, protocol = "tcp", cidr = "10.10.10.10/32" }
-      }
-      egress_rules     = {
-        https = { from_port = 443, to_port = 443, protocol = "tcp", cidr = "0.0.0.0/0" }
-      }
-      termination_protection = true
+      image                  = "linux"
+      subnet                 = "app_a"
+      private_ip             = "10.42.10.10"
+      instance_type          = "t3.micro"
+      root_volume_size       = 30
+      data_volumes           = { "/dev/sdf" = { size = 10 } }
+      allocate_eip           = false
+      ingress_rules          = {}
+      egress_rules           = {}
+      termination_protection = false
     }
 
 
     demo-game-01 = {
-      image            = "linux"
-      subnet           = "app_b"
-      private_ip       = "10.72.10.10"
-      instance_type    = "t3.micro"
-      root_volume_size = 50
-      data_volumes     = { "/dev/sdf" = { size = 60 } }
-      allocate_eip     = true
-      ingress_rules    = {
-        Gateway_server = { from_port = 3389, to_port = 3389, protocol = "tcp", cidr = "10.10.10.10/32" }
-      }
-      egress_rules     = {
-        https = { from_port = 443, to_port = 443, protocol = "tcp", cidr = "0.0.0.0/0" }
-      }
-      termination_protection = true
+      image                  = "linux"
+      subnet                 = "app_c"
+      private_ip             = "10.42.20.10"
+      instance_type          = "t3.micro"
+      root_volume_size       = 50
+      data_volumes           = { "/dev/sdf" = { size = 60 } }
+      allocate_eip           = false
+      ingress_rules          = {}
+      egress_rules           = {}
+      termination_protection = false
     }
   }
 }
