@@ -40,11 +40,11 @@ module "EC2" {
   allocate_eip     = each.value.allocate_eip
   ingress_rules    = each.value.ingress_rules
   egress_rules     = each.value.egress_rules
-  common_security_group_ids = [
-    module.Linux_Common.security_group_id,
-    module.shared_SG["operations"].security_group_id
-  ]
-  termination_protection = false
+  common_security_group_ids = concat(
+    [module.Linux_Common.security_group_id],
+    [for group_key in local.shared_sg_keys_by_server[each.key] : module.shared_SG[group_key].security_group_id]
+  )
+  termination_protection = each.value.termination_protection
 
   user_data = templatefile("${path.module}/templates/linux_init.sh.tpl", {
     hostname = each.key
